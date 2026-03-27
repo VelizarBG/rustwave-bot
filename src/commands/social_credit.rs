@@ -3,6 +3,7 @@ use color_eyre::eyre::{ContextCompat, eyre};
 use image::ImageReader;
 use imagetext::prelude::*;
 use itertools::Itertools;
+use log::warn;
 use mc_rcon::RconClient;
 use poise::CreateReply;
 use poise::serenity_prelude::{
@@ -119,7 +120,7 @@ pub async fn target(
 		)
 		.await?;
 
-		sync_with_server(&user, &config)?;
+		sync_with_server(&user).await?;
 	}
 
 	Ok(())
@@ -191,15 +192,22 @@ async fn send_leaderboard_message(ctx: &Context<'_>, ephemeral: bool) -> Result<
 }
 
 #[allow(clippy::cast_possible_truncation)]
-fn sync_with_server(user: &entity::social_credit_user::Model, config: &config::Config) -> Result<()> {
-	let Some(ign) = &user.ign else { return Ok(()) };
+async fn sync_with_server(user: &entity::social_credit_user::Model) -> Result<()> {
+	let Some(ign) = user.ign.clone() else { return Ok(()) };
 
-	let client = RconClient::connect(format!("{}:{}", config.rcon_ip, config.rcon_port))?;
-	client.log_in(&config.rcon_pass)?;
-	client.send_command(&format!(
-		"scoreboard players set {ign} {} {}",
-		config.social_credit_objective, user.social_credit as i32
-	))?;
+	let social_credit = user.social_credit;
+	let _ = tokio::task::spawn_blocking(move || -> Result<()> {
+		let config = config::get();
+		let client = RconClient::connect(format!("{}:{}", config.rcon_ip, config.rcon_port))?;
+		client.log_in(&config.rcon_pass)?;
+		client.send_command(&format!(
+			"scoreboard players set {ign} {} {}",
+			config.social_credit_objective, social_credit as i32
+		))?;
+		Ok(())
+	})
+	.await?
+	.map_err(|err| warn!("Failed to sync social credit with server: {err:?}"));
 
 	Ok(())
 }
