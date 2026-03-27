@@ -1,0 +1,37 @@
+[package]
+name = "rustwave-bot"
+version = "0.1.0"
+edition = "2024"
+
+[profile.release]
+#strip = true        # Automatically strip symbols from the binary.
+opt-level = 3       # Optimize for binary size
+codegen-units = 1   # Reduce number of codegen units to increase optimizations; unimpressive
+lto = true          # Enable Link Time Optimization
+# panic = 'abort'   # Abort on panic; unimpressive
+debug = "full"
+
+# Improve performance of dev builds
+[profile.dev.package.backtrace]
+opt-level = 3
+
+[lints.clippy]
+pedantic = "warn"
+
+[dependencies]
+serenity = { git = "https://github.com/serenity-rs/serenity.git", branch = "next", default-features = false, features = ["rustls_backend", "transport_compression_zstd"] }
+poise = { git = "https://github.com/serenity-rs/poise.git", branch = "serenity-next" }
+tokio = { version = "1.50.0", features = ["macros", "rt-multi-thread", "rt"] }
+color-eyre = { version = "0.6.5", default-features = false }
+log = "0.4.29"
+flexi_logger = { version = "0.31.8", features = ["async", "compress"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+image = "0.25.10"
+imagetext = { git = "https://github.com/nathanielfernandes/imagetext.git", default-features = false, features = ["fontdb"] }
+mc-rcon = "0.1.1"
+itertools = "0.14.0"
+
+[dependencies.sea-orm]
+version = "2.0.0-rc.37"
+features = ["sqlx-sqlite", "runtime-tokio", "entity-registry", "schema-sync", "macros", "debug-print"]
