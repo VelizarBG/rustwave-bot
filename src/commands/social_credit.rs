@@ -207,7 +207,7 @@ async fn sync_with_server(user: &entity::social_credit_user::Model) -> Result<()
 		Ok(())
 	})
 	.await?
-	.map_err(|err| warn!("Failed to sync social credit with server: {err:?}"));
+	.map_err(|err| warn!("Failed to sync social credit with server: {err}"));
 
 	Ok(())
 }
