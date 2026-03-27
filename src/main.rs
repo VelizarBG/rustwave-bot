@@ -155,7 +155,7 @@ async fn init_db() -> Result<()> {
 async fn on_error(error: FrameworkError<'_, Data, Error>) {
 	match error {
 		FrameworkError::Command { error, ctx, .. } => {
-			warn!("Error while executing command '{}': {error:?}", ctx.command().name);
+			warn!("Error while executing command '{}': {error:?}", ctx.command().qualified_name);
 
 			let mentions = CreateAllowedMentions::new().everyone(false).all_roles(false).all_users(false);
 			if let Err(e) = ctx
