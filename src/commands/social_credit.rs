@@ -1,6 +1,6 @@
 use crate::{Context, Result, config, db, entity};
 use color_eyre::eyre::{ContextCompat, eyre};
-use image::ImageReader;
+use image::{ImageReader, RgbaImage};
 use imagetext::prelude::*;
 use itertools::Itertools;
 use log::warn;
@@ -28,6 +28,22 @@ static ROLE_LIMITS: LazyLock<[(RoleId, u64); 6]> = LazyLock::new(|| {
 	limits.sort_by(|a, b| Ord::cmp(&a.1, &b.1));
 	limits.reverse();
 	limits
+});
+
+static MINUS_CREDIT_TEMPLATE: LazyLock<RgbaImage> = LazyLock::new(|| {
+	ImageReader::open("assets/images/minus_credit_template.png")
+		.expect("Image should open successfully")
+		.decode()
+		.expect("Image should decode successfully")
+		.into_rgba8()
+});
+
+static PLUS_CREDIT_TEMPLATE: LazyLock<RgbaImage> = LazyLock::new(|| {
+	ImageReader::open("assets/images/plus_credit_template.png")
+		.expect("Image should open successfully")
+		.decode()
+		.expect("Image should decode successfully")
+		.into_rgba8()
 });
 
 static ARIAL: LazyLock<SuperFont> = LazyLock::new(|| {
@@ -213,9 +229,7 @@ async fn sync_with_server(user: &entity::social_credit_user::Model) -> Result<()
 }
 
 fn generate_image(amount: i64) -> Result<Vec<u8>> {
-	let image_path =
-		if amount < 0 { "assets/images/minus_credit_template.png" } else { "assets/images/plus_credit_template.png" };
-	let mut image = ImageReader::open(image_path)?.decode()?.into_rgba8();
+	let mut image = if amount < 0 { MINUS_CREDIT_TEMPLATE.clone() } else { PLUS_CREDIT_TEMPLATE.clone() };
 
 	if amount < 0 {
 		draw_text_mut(
