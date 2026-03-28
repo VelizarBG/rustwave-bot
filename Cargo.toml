@@ -6,7 +6,8 @@ edition = "2024"
 [profile.release]
 #strip = true        # Automatically strip symbols from the binary.
 opt-level = 3       # Optimize for binary size
-codegen-units = 1   # Reduce number of codegen units to increase optimizations; unimpressive
+codegen-units = 4   # Reduce number of codegen units to increase optimizations
+incremental = true
 lto = true          # Enable Link Time Optimization
 # panic = 'abort'   # Abort on panic; unimpressive
 debug = "full"
