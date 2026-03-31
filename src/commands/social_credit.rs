@@ -263,13 +263,15 @@ fn generate_image(amount: i64) -> Result<Vec<u8>> {
 }
 
 fn get_limit(roles: &FixedArray<RoleId>) -> u64 {
-	for (role, limit) in ROLE_LIMITS.iter() {
+	// default limit
+	let mut limit = 10;
+	for (role, role_limit) in ROLE_LIMITS.iter() {
 		if roles.contains(role) {
-			return *limit;
+			limit = *role_limit;
+			break;
 		}
 	}
-	// default limit
-	10
+	limit * 1000
 }
 
 fn has_member_or_provisional(config: &Arc<config::Config>, user_roles: &FixedArray<RoleId>) -> bool {
