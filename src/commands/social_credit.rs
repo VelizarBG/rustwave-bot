@@ -229,9 +229,9 @@ async fn sync_with_server(user: &entity::social_credit_user::Model) -> Result<()
 }
 
 fn generate_image(amount: i64) -> Result<Vec<u8>> {
-	let mut image = if amount < 0 { MINUS_CREDIT_TEMPLATE.clone() } else { PLUS_CREDIT_TEMPLATE.clone() };
-
+	let mut image: RgbaImage;
 	if amount < 0 {
+		image = MINUS_CREDIT_TEMPLATE.clone();
 		draw_text_mut(
 			&mut image,
 			&WHITE,
@@ -244,6 +244,7 @@ fn generate_image(amount: i64) -> Result<Vec<u8>> {
 		)
 		.map_err(|err| eyre!("Error while drawing text on image: {err}"))?;
 	} else {
+		image = PLUS_CREDIT_TEMPLATE.clone();
 		draw_text_mut(
 			&mut image,
 			&WHITE,
