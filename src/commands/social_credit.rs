@@ -55,7 +55,7 @@ static CALIBRI: LazyLock<SuperFont> = LazyLock::new(|| {
 });
 
 #[allow(clippy::unused_async)]
-#[poise::command(slash_command, subcommands("target", "leaderboard", "leaderboard_public"))]
+#[poise::command(slash_command, subcommands("target", "view", "view_public", "leaderboard", "leaderboard_public"))]
 pub async fn social_credit(_ctx: Context<'_>) -> Result<()> {
 	Ok(())
 }
@@ -144,6 +144,52 @@ pub async fn target(
 
 #[poise::command(
 	slash_command,
+	description_localized("en-US", "View the social credit of a specific member"),
+	member_cooldown = 10
+)]
+pub async fn view(ctx: Context<'_>, #[description = "WaveTech Member"] target: Member) -> Result<()> {
+	send_view_credit_message(&ctx, &target, true).await?;
+
+	Ok(())
+}
+
+#[poise::command(
+	slash_command,
+	description_localized("en-US", "View the social credit of a specific member as a message everyone can see"),
+	member_cooldown = 10
+)]
+pub async fn view_public(ctx: Context<'_>, #[description = "WaveTech Member"] target: Member) -> Result<()> {
+	send_view_credit_message(&ctx, &target, false).await?;
+
+	Ok(())
+}
+
+async fn send_view_credit_message(ctx: &Context<'_>, target: &Member, ephemeral: bool) -> Result<()> {
+	let config = config::get();
+
+	if !has_member_or_provisional(&config, &target.roles) {
+		ctx.send(CreateReply::default().content("Target must be a Member or a Provisional!").ephemeral(true)).await?;
+		return Ok(());
+	}
+
+	let social_credit = entity::social_credit_user::Entity::find_by_id(target.user.id)
+		.one(db())
+		.await?
+		.map_or(0, |model| model.social_credit);
+
+	ctx.send(
+		CreateReply::default()
+			.content(format!("{} has {social_credit} Social Credit", target.mention()))
+			.allowed_mentions(CreateAllowedMentions::new())
+			.ephemeral(ephemeral),
+	)
+	.await?;
+
+	Ok(())
+}
+
+#[poise::command(
+	slash_command,
 	description_localized("en-US", "View the social credit leaderboard"),
 	member_cooldown = 10
 )]
@@ -155,7 +201,7 @@ pub async fn leaderboard(ctx: Context<'_>) -> Result<()> {
 
 #[poise::command(
 	slash_command,
-	description_localized("en-US", "View the leaderboard as a normal message everyone can see"),
+	description_localized("en-US", "View the leaderboard as a message everyone can see"),
 	member_cooldown = 300
 )]
 pub async fn leaderboard_public(ctx: Context<'_>) -> Result<()> {
