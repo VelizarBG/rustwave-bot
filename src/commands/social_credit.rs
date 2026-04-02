@@ -71,73 +71,83 @@ pub async fn target(
 	#[description = "WaveTech Member"] target: Member,
 	#[description = "Amount of social credit to add or subtract"] amount: i64,
 ) -> Result<()> {
-	let config = config::get();
-
-	if !has_member_or_provisional(&config, &target.roles) {
-		ctx.send(CreateReply::default().content("Target must be a Member or a Provisional!").ephemeral(true)).await?;
-		return Ok(());
-	}
-
-	let author = &ctx.author_member().await.wrap_err("Could not get author member")?;
-	let author_roles = &author.roles;
-	if !config.can_members_change_social_credit && has_member_or_provisional(&config, author_roles) {
-		ctx.send(CreateReply::default().content("Nuh-uh").ephemeral(true)).await?;
-		return Ok(());
-	}
-
-	let limit = get_limit(author_roles);
-	if amount == 0 || amount.unsigned_abs() > limit {
-		let mut message = format!("Invalid amount! Pick an amount between -{limit} and {limit}");
-		if amount == 0 {
-			message.push_str(" (excluding 0)");
+	let target_id = target.user.id;
+	let author_id = ctx.author().id;
+	if !ctx.framework().options.owners.contains(&author_id) {
+		if target_id == author_id {
+			ctx.send(CreateReply::default().content("Nuh-uh").ephemeral(true)).await?;
+			return Ok(());
 		}
-		ctx.send(CreateReply::default().content(message).ephemeral(true)).await?;
-	} else {
-		// we can defer now, as ephemeral messages are no longer needed
-		ctx.defer().await?;
 
-		let db = db();
-		let target_id = target.user.id;
-		let user = entity::social_credit_user::Entity::find_by_id(target_id)
-			.one(db)
-			.await?
-			.map_or_else(
-				|| {
-					entity::social_credit_user::ActiveModel {
-						id: ActiveValue::Set(i64::from(target_id)),
-						social_credit: ActiveValue::Set(amount),
-						..Default::default()
-					}
-					.insert(db)
-				},
-				|model| {
-					let mut active_model = model.into_active_model();
-					active_model.social_credit = ActiveValue::Set(active_model.social_credit.unwrap() + amount);
-					active_model.update(db)
-				},
-			)
-			.await?;
+		let config = config::get();
 
-		ctx.send(
-			CreateReply::default()
-				.embed(
-					CreateEmbed::new()
-						.description(format!(
-							"### {amount:+} Social Credit to {} from {}",
-							target.mention(),
-							author.mention()
-						))
-						.image("attachment://social_credit_image.png")
-						.footer(CreateEmbedFooter::new(format!("current social credit: {}", user.social_credit)))
-						.color(if amount < 0 { 0xC24A3F } else { 0x2EB33E }),
-				)
-				.attachment(CreateAttachment::bytes(generate_image(amount)?, "social_credit_image.png"))
-				.allowed_mentions(CreateAllowedMentions::new()),
+		if !has_member_or_provisional(&config, &target.roles) {
+			ctx.send(CreateReply::default().content("Target must be a Member or a Provisional!").ephemeral(true))
+				.await?;
+			return Ok(());
+		}
+
+		let author = &ctx.author_member().await.wrap_err("Could not get author member")?;
+		let author_roles = &author.roles;
+		if !config.can_members_change_social_credit && has_member_or_provisional(&config, author_roles) {
+			ctx.send(CreateReply::default().content("Nuh-uh").ephemeral(true)).await?;
+			return Ok(());
+		}
+
+		let limit = get_limit(author_roles);
+		if amount == 0 || amount.unsigned_abs() > limit {
+			let mut message = format!("Invalid amount! Pick an amount between -{limit} and {limit}");
+			if amount == 0 {
+				message.push_str(" (excluding 0)");
+			}
+			ctx.send(CreateReply::default().content(message).ephemeral(true)).await?;
+			return Ok(());
+		}
+	}
+
+	// we can defer now, as ephemeral messages are no longer needed
+	ctx.defer().await?;
+
+	let db = db();
+	let user = entity::social_credit_user::Entity::find_by_id(target_id)
+		.one(db)
+		.await?
+		.map_or_else(
+			|| {
+				entity::social_credit_user::ActiveModel {
+					id: ActiveValue::Set(i64::from(target_id)),
+					social_credit: ActiveValue::Set(amount),
+					..Default::default()
+				}
+				.insert(db)
+			},
+			|model| {
+				let mut active_model = model.into_active_model();
+				active_model.social_credit = ActiveValue::Set(active_model.social_credit.unwrap() + amount);
+				active_model.update(db)
+			},
 		)
 		.await?;
 
-		sync_with_server(&user).await?;
-	}
+	ctx.send(
+		CreateReply::default()
+			.embed(
+				CreateEmbed::new()
+					.description(format!(
+						"### {amount:+} Social Credit to {} from {}",
+						target_id.mention(),
+						author_id.mention()
+					))
+					.image("attachment://social_credit_image.png")
+					.footer(CreateEmbedFooter::new(format!("current social credit: {}", user.social_credit)))
+					.color(if amount < 0 { 0xC24A3F } else { 0x2EB33E }),
+			)
+			.attachment(CreateAttachment::bytes(generate_image(amount)?, "social_credit_image.png"))
+			.allowed_mentions(CreateAllowedMentions::new()),
+	)
+	.await?;
+
+	sync_with_server(&user).await?;
 
 	Ok(())
 }
